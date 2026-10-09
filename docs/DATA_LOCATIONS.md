@@ -8,6 +8,7 @@ _Last surveyed: 2026-10-09. Sizes are from `du -sh`._
 
 | Path | Size | Contents |
 |---|---|---|
+| `/data_8tb/capstone_3d/wriva_format/` | — | **Organized collections**: one folder per building / flight / video with `images/`, WRIVA `metadata/`, `manifest.csv`, `gps_map.html`. See [WRIVA_FORMAT.md](WRIVA_FORMAT.md) |
 | `/data_8tb/capstone_3d/` | 513 GB | Main capstone workspace: raw drone data, Emlid building captures, prepared datasets, SfM and Gaussian Splatting results |
 | `/data_8tb/Wingtra_Pilot_Projects_Mar30/` | 107 GB | Raw WingtraOne flights (same as the copy in `capstone_3d/`) |
 | `/data_8tb/Lizzy_web_data/` | 237 GB | Pix4D-processed Wingtra surveys (Lagoon, Northwest): ortho, DSM, point cloud, mesh, PPK geotags |
@@ -37,8 +38,9 @@ DJI drone video captured on April 9.
 - `DJI_0042_frames/`: 118 extracted frames.
 
 ### `capstone_emilid_data/` (44 GB)
-Ground-level iPhone captures of campus buildings, with Emlid Reach RX2 GNSS point logs. **Mostly still zipped** (37 zips).
-- `Dataset/Phelps/`: the only extracted set (1.4 GB, 328 `IMG_*.JPG`), extracted from `Dataset-…-023.zip`.
+Ground-level iPhone captures of campus buildings, with Emlid Reach RX2 GNSS point logs (37 zips, all extracted under `extracted/`).
+- `Dataset/Phelps/`: 1.4 GB, 328 `IMG_*.JPG`, extracted from `Dataset-…-023.zip`.
+- `extracted/<zip name>/`: every data zip extracted into its own folder (35 zips, 42 GB; file counts verified against the zips). Skipped: `nixos-config-main.zip` (unrelated), `Untitled folder…zip` (empty), `Dataset-…-023.zip` (already in `Dataset/Phelps/`). The zips themselves are kept.
 
 #### Two kinds of zip
 
@@ -173,3 +175,22 @@ Nothing has been deleted. These overlaps are known:
 3. **Lizzy Lagoon zips** (~63 GB) sit next to their extracted folders.
 4. **Northwest point cloud**: `/data_8tb/UCSB_3D Campus Model _ Northwest_point_cloud.laz` is byte-identical to the copy in `Lizzy_web_data/3D_Campus_Model__North_West/`.
 5. **Emlid zips**: `Broida (with emlid data).zip` and `Broida (with emlid data) (1).zip` are byte-identical. The two `Buchanan Hall-…zip` files contain the same file list (zip headers differ).
+
+---
+
+## Ground images and camera GPS
+
+Every building's ground photos, with their GPS, are now organized in
+`/data_8tb/capstone_3d/wriva_format/ucsb_*_ground*/` (see [WRIVA_FORMAT.md](WRIVA_FORMAT.md)).
+Notes on the original sources:
+
+- Phone photos carry phone GPS in EXIF (5–15 m) except: LSB (no phone GPS), Campbell's
+  `jpg (conv from heic)` folder (EXIF stripped), the spring-2025 Kavli iPhone 12 photos, and
+  `/data_8tb/capstone/ElingsLot10JPG` (stripped / Samsung).
+- Emlid exports list RTK points (1–3 cm) but do not say which photo they belong to; photos are matched
+  by capture time (within 5 s).
+- The older pipeline's prepared datasets (`capstone_data/datasets/*/testing_out/`) have Emlid positions
+  written into EXIF, with a per-photo log in `manifest_photo_emlid.xml`. In `lsb` and part of
+  `elings_big_data` the written longitude has no W reference tag, so EXIF readers show +119.84 instead
+  of −119.84. The `wriva_format` collections are built from the raw photos and are not affected.
+- `/data_8tb/capstone/prairie/` is senseFly aerial imagery from Montana, not UCSB.
