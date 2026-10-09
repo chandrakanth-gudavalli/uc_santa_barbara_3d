@@ -8,9 +8,22 @@ Tooling and documentation for the UCSB 3D campus capstone data. The data itself 
 it lives on the `/data_8tb` drive of the workstation. This repo:
 
 - documents where every dataset is (`docs/DATA_LOCATIONS.md`)
+- lists every built collection with counts and GPS coverage (`docs/COLLECTIONS.md`)
 - converts raw ground photos and drone images into WRIVA-format collections
   (`tools/build_wriva.py`, documented in `docs/WRIVA_FORMAT.md`)
 - draws an HTML GPS map per collection (`tools/gps_map.py`)
+
+## Project goal
+
+Build a **"UCSB in 3D"** GitHub Pages site for the campus, modeled on
+[JHU in 3D](https://cpeng93.github.io/JHU-in-3D/): a campus-wide aerial Gaussian splat plus per-building
+ground and aerial splats, with fly-through camera paths, building labels, and aerial↔ground jumps.
+
+- The organized `wriva_format` collections are the input for training those splats.
+- The team trains the splats itself. Don't start the site until they're ready.
+- Planned layout: site code in `site/` of this repo (GitHub Pages); large splat files on Hugging Face.
+- JHU uses Three.js + [Spark](https://sparkjs.dev) (`@sparkjsdev/spark`, MIT) with `.rad` splat files and
+  per-scene camera trajectory JSONs. Their source isn't published under a license, so write our own viewer.
 
 ## Key paths
 

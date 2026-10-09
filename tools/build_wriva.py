@@ -246,7 +246,7 @@ def load_wingtra_ppk(wgs84_csv, geotaglog=None):
 
 def load_wingtra_raw(flight_dir):
     """Onboard (non-PPK) geotags keyed by image sequence number (angles converted to degrees)."""
-    js = next((Path(flight_dir) / 'DATA').glob('*.json'))
+    js = next(p for p in sorted((Path(flight_dir) / 'DATA').glob('*.json')) if not p.name.startswith('._'))
     out = {}
     for g in json.load(open(js))['flights'][0]['geotag']:
         lat, lon, alt = (float(v) for v in g['coordinate'])

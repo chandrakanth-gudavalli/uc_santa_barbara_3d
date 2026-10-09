@@ -7,6 +7,7 @@ metadata schema **4.2.0**.
 - **Output root:** `/data_8tb/capstone_3d/wriva_format/`
 - **Builder:** `tools/build_wriva.py` (writes everything below)
 - **Map:** `tools/gps_map.py` (writes `gps_map.html`; called by the builder)
+- **Inventory:** [COLLECTIONS.md](COLLECTIONS.md) lists all 64 collections with image counts, GPS sources and dates (16,933 images, 156 GB).
 
 ## Collection layout
 
