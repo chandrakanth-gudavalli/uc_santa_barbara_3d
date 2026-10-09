@@ -4,7 +4,10 @@ All UCSB capstone imagery (ground photos and drone images) is reorganized into o
 collection, following the layout of `/data_8tb/data_chand_arxiv/sample_dataset_1` and WRIVA image
 metadata schema **4.2.0**.
 
-- **Output root:** `/data_8tb/capstone_3d/wriva_format/`
+- **Output root:** `/data_8tb/capstone_3d/wriva_format/`, split into three folders:
+  - `Ground/` — phone photos of buildings (23 collections)
+  - `drone/` — WingtraOne flights (9)
+  - `DJI/` — DJI video keyframes (32)
 - **Builder:** `tools/build_wriva.py` (writes everything below)
 - **Map:** `tools/gps_map.py` (writes `gps_map.html`; called by the builder)
 - **Inventory:** [COLLECTIONS.md](COLLECTIONS.md) lists all 64 collections with image counts, GPS sources and dates (16,933 images, 156 GB).
@@ -12,7 +15,7 @@ metadata schema **4.2.0**.
 ## Collection layout
 
 ```
-<collection>/
+{Ground,drone,DJI}/<collection>/
   images/image_000001.jpg ...      full copies of source images (HEIC converted to JPEG q95)
   metadata/image_000001.json ...   per-image WRIVA metadata
   metadata/site.json               site bounds + timezone + notes
@@ -52,8 +55,8 @@ images are orientation 3 (rotate 180°). HEIC conversions are written upright wi
 |---|---|---|
 | `emlid_rtk` | Emlid Reach RX2 RTK point whose averaging time is within **5 s** of the photo's EXIF capture time (nearest wins; one point can serve several photos) | 1–3 cm |
 | `device_gps` | phone EXIF GPS (`GPSHPositioningError` used as uncertainty) | 5–15 m |
-| `wingtra_ppk` | Wingtra PPK geotags (Pix4D/WingtraHub output in `Lizzy_web_data`) | 2–3 cm |
-| `wingtra_gnss` | onboard WingtraOne geotags from the flight `DATA/*.json` (no PPK available) | ~5 m h / 10 m v |
+| `wingtra_ppk` | Wingtra PPK geotags (WingtraHub output in `Lizzy_web_data`), only when the stated horizontal accuracy is < 0.5 m | 2–3 cm |
+| `wingtra_gnss` | onboard WingtraOne geotags (flight `DATA/*.json`, or a WingtraHub export that was not PPK-processed) | ~5 m h / 10 m v |
 | `dji_gps` | DJI SRT telemetry row matched to each extracted keyframe (`keyframe_manifest.csv`) | several m |
 | `none` | no usable position (photo has no GPS and no Emlid match) | — |
 
@@ -141,7 +144,7 @@ When a photo exists as HEIC and as a JPG copy, the HEIC original is used.
 | Collection | Flight | Positions |
 |---|---|---|
 | `ucsb_wingtra_northwest_f01` | Northwest Flight 01 | PPK (`Lizzy_web_data/3D_Campus_Model__North_West`) |
-| `ucsb_wingtra_lagoon_f01` / `_f02` | Lagoon Flights 01 / 02 | PPK (Lizzy Lagoon merged geotags) |
+| `ucsb_wingtra_lagoon_f01` / `_f02` | Lagoon Flights 01 / 02 | onboard GNSS (Lizzy Lagoon merged geotags; their 5 m / 10 m accuracy and 0.0 m difference from the raw flight log show they are not PPK) |
 | `ucsb_wingtra_north_middle_f01` | North Middle Flight 01 | onboard GNSS |
 | `ucsb_wingtra_northeast_f01` / `_f02` | Northeast Flights 01 / 02 | onboard GNSS |
 | `ucsb_wingtra_east_f01` | East New (copy) Flight 01 | onboard GNSS |
@@ -170,7 +173,7 @@ python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
 .venv/bin/python tools/build_wriva.py --list                 # collection names
 .venv/bin/python tools/build_wriva.py ucsb_phelps_ground     # one collection
 .venv/bin/python tools/build_wriva.py --list | xargs -P 4 -n 1 .venv/bin/python tools/build_wriva.py
-.venv/bin/python tools/gps_map.py /data_8tb/capstone_3d/wriva_format/<collection>   # map only
+.venv/bin/python tools/gps_map.py /data_8tb/capstone_3d/wriva_format/<group>/<collection>   # map only
 ```
 
 Existing collection folders are skipped; delete one to rebuild it.

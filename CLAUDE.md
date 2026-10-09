@@ -29,10 +29,10 @@ ground and aerial splats, with fly-through camera paths, building labels, and ae
 
 | Path | What |
 |---|---|
-| `/data_8tb/capstone_3d/wriva_format/<collection>/` | Output: `images/`, `metadata/` (WRIVA 4.2.0 JSON + `site.json`), `manifest.csv`, `gps_map.html` |
+| `/data_8tb/capstone_3d/wriva_format/{Ground,drone,DJI}/<collection>/` | Output (Ground = phone photos, drone = Wingtra, DJI = DJI video keyframes): `images/`, `metadata/` (WRIVA 4.2.0 JSON + `site.json`), `manifest.csv`, `gps_map.html` |
 | `/data_8tb/capstone_3d/capstone_emilid_data/extracted/` | Raw building photo zips (iPhone) + Emlid RTK CSV/XLSX, extracted |
 | `/data_8tb/capstone_3d/Wingtra_Pilot_Projects_Mar30/` | Raw WingtraOne flights (`IMAGES/`, `DATA/*.json` onboard geotags) |
-| `/data_8tb/Lizzy_web_data/` | Pix4D products + PPK geotags for Lagoon and Northwest (shared, group `charvi`) |
+| `/data_8tb/Lizzy_web_data/` | Pix4D products for Lagoon and Northwest; PPK geotags for Northwest only (Lagoon geotags are onboard GNSS) (shared, group `charvi`) |
 | `/data_8tb/capstone_3d/dji_drone_Apr9/100MEDIA/` | DJI videos, SRT telemetry, `DJI_*_iframes/` keyframes + `keyframe_manifest.csv` |
 | `/data_8tb/data_chand_arxiv/sample_dataset_1/` | Reference layout the collections follow |
 | `/data_8tb/wriva/` | Real WRIVA datasets, useful for schema examples |
@@ -54,7 +54,9 @@ To add a collection, add an entry to `GROUND`, `WINGTRA_FLIGHTS` or the extra `C
 - `extrinsics.alt` is WGS84 **ellipsoidal** height (m) in every collection. Above-sea-level sources
   are shifted by `UCSB_GEOID_N` (−35.8 m). DJI altitude is relative, so it is `null`.
 - `extrinsic_calibration` / `geolocation` name the GPS source: `emlid_rtk`, `device_gps`,
-  `wingtra_ppk`, `wingtra_gnss`, `dji_gps`, `none`.
+  `wingtra_ppk`, `wingtra_gnss`, `dji_gps`, `none`. A Wingtra geotag counts as PPK only if its stated
+  horizontal accuracy is < 0.5 m (`PPK_MAX_H_ACC_M`); file names and folder names are not trusted.
+- Per-collection counts are in `docs/collections_summary.csv` (regenerate with `tools/summarize_collections.py`).
 - Emlid points are matched to photos by EXIF capture time within 5 s.
 - Images are full copies named `image_NNNNNN.jpg` in capture-time order; `manifest.csv` maps back to
   the original file. HEIC is converted to JPEG (q95, upright, EXIF kept).

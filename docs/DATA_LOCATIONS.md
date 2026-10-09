@@ -8,10 +8,10 @@ _Last surveyed: 2026-10-09. Sizes are from `du -sh`._
 
 | Path | Size | Contents |
 |---|---|---|
-| `/data_8tb/capstone_3d/wriva_format/` | — | **Organized collections**: one folder per building / flight / video with `images/`, WRIVA `metadata/`, `manifest.csv`, `gps_map.html`. See [WRIVA_FORMAT.md](WRIVA_FORMAT.md) |
+| `/data_8tb/capstone_3d/wriva_format/` | — | **Organized collections** in `Ground/` (buildings), `drone/` (Wingtra) and `DJI/` (DJI video): one folder per building / flight / video with `images/`, WRIVA `metadata/`, `manifest.csv`, `gps_map.html`. See [WRIVA_FORMAT.md](WRIVA_FORMAT.md) |
 | `/data_8tb/capstone_3d/` | 513 GB | Main capstone workspace: raw drone data, Emlid building captures, prepared datasets, SfM and Gaussian Splatting results |
 | `/data_8tb/Wingtra_Pilot_Projects_Mar30/` | 107 GB | Raw WingtraOne flights (same as the copy in `capstone_3d/`) |
-| `/data_8tb/Lizzy_web_data/` | 237 GB | Pix4D-processed Wingtra surveys (Lagoon, Northwest): ortho, DSM, point cloud, mesh, PPK geotags |
+| `/data_8tb/Lizzy_web_data/` | 237 GB | Pix4D-processed Wingtra surveys (Lagoon, Northwest): ortho, DSM, point cloud, mesh, geotags (PPK for Northwest only) |
 | `/data_8tb/capstone/` | 6 GB | Early ground-level image sets (Elings Lot 10, prairie) |
 | `/data_8tb/UCSB_3D Campus Model _ Northwest_point_cloud.laz` | 870 MB | Northwest Pix4D point cloud (same as the copy in `Lizzy_web_data/`) |
 
@@ -133,7 +133,7 @@ Each run typically has `cfg.yml`, `ckpts/`, `ply/`, `renders/`, `stats/`, `tb/` 
 ---
 
 ## `/data_8tb/Lizzy_web_data/` (237 GB)
-Pix4D photogrammetry products from Wingtra flights with PPK-corrected geotags. These are useful as survey-grade reference / ground truth. Owned by group `charvi`. Each subfolder has its own `CLAUDE.md` with format and CRS details.
+Pix4D photogrammetry products from Wingtra flights. Northwest has PPK-corrected geotags (2–3 cm); the Lagoon geotag CSVs are onboard GNSS (5 m / 10 m), identical to the raw flight log. These are useful as survey-grade reference / ground truth. Owned by group `charvi`. Each subfolder has its own `CLAUDE.md` with format and CRS details.
 
 ### `Lagoon/` (140 GB)
 Lagoon Flights 01 + 02 merged (2,357 raw images).
@@ -181,7 +181,7 @@ Nothing has been deleted. These overlaps are known:
 ## Ground images and camera GPS
 
 Every building's ground photos, with their GPS, are now organized in
-`/data_8tb/capstone_3d/wriva_format/ucsb_*_ground*/` (see [WRIVA_FORMAT.md](WRIVA_FORMAT.md)).
+`/data_8tb/capstone_3d/wriva_format/Ground/` (see [WRIVA_FORMAT.md](WRIVA_FORMAT.md)).
 Notes on the original sources:
 
 - Phone photos carry phone GPS in EXIF (5–15 m) except: LSB (no phone GPS), Campbell's

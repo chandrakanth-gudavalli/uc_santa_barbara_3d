@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build WRIVA-style collections (images/ + metadata/) from UCSB capstone sources.
 
-Each collection is written to <OUT_ROOT>/<name>/ as:
+Each collection is written to <OUT_ROOT>/<group>/<name>/ (group: Ground, drone or DJI) as:
     images/image_000001.jpg ...     full copies of the source JPGs (HEIC converted to JPEG)
     metadata/image_000001.json ...  WRIVA image metadata (schema 4.2.0)
     metadata/site.json              site bounds polygon, timezone, type
@@ -36,8 +36,18 @@ TIMEZONE = 'America/Los_Angeles'
 # Geoid separation (ellipsoidal - orthometric) at UCSB, from Emlid exports with both heights
 UCSB_GEOID_N = -35.8
 EMLID_TOLERANCE_S = 5.0
+PPK_MAX_H_ACC_M = 0.5   # geotag h-accuracy above this is onboard GNSS, not PPK
 BOUNDS_BUFFER_M = 15.0
 IMAGE_EXTS = ('.jpg', '.jpeg', '.heic')
+
+
+def group_of(name):
+    """Top-level folder for a collection: phone photos, Wingtra flights, DJI video keyframes."""
+    if name.startswith('ucsb_dji_'):
+        return 'DJI'
+    if name.startswith('ucsb_wingtra_'):
+        return 'drone'
+    return 'Ground'
 
 
 # --------------------------------------------------------------------------- EXIF
@@ -325,7 +335,7 @@ NO_POS = {'lat': None, 'lon': None, 'alt': None}
 
 def write_collection(name, site, img_type, records, notes, staging=None):
     """records: dicts with src (file to copy), orig, ts, ext, unc, intr, ext_cal, source, manifest."""
-    out = OUT_ROOT / name
+    out = OUT_ROOT / group_of(name) / name
     (out / 'images').mkdir(parents=True)
     (out / 'metadata').mkdir()
     records.sort(key=lambda r: (r['ts'] is None, r['ts'] or 0, str(r['orig'])))
@@ -412,9 +422,11 @@ def build_wingtra(name, site, flight_dir, ppk_csv=None, geotaglog=None, notes=''
         if src.suffix.lower() != '.jpg' or src.name.startswith('._'):
             continue
         seq = int(re.search(r'(\d+)$', src.stem).group(1))
-        g, cal = ppk.get(src.name.lower()), 'wingtra_ppk'
+        g = ppk.get(src.name.lower())
+        # WingtraHub exports the same CSV with or without PPK; trust the stated accuracy, not the file
+        cal = 'wingtra_ppk' if g and g['h_acc'] < PPK_MAX_H_ACC_M else 'wingtra_gnss'
         if not g:
-            g, cal = raw.get(seq), 'wingtra_gnss'
+            g = raw.get(seq)
         info = read_jpeg_info(src.read_bytes())
         if g:
             ext = {'lat': g['lat'], 'lon': g['lon'], 'alt': g['alt']}
@@ -427,9 +439,16 @@ def build_wingtra(name, site, flight_dir, ppk_csv=None, geotaglog=None, notes=''
                         'intr': intrinsics_from_exif(info), 'ext_cal': cal,
                         'source': f"{info.get('make', '')} {info.get('model', '')}".strip() or None,
                         'manifest': man})
-    notes = (notes + (' Positions from Wingtra PPK geotags.' if ppk else
-                      ' Positions from onboard (non-PPK) Wingtra GNSS geotags; altitude converted'
-                      f' from above-sea-level with geoid N={UCSB_GEOID_N} m.') +
+    n_ppk = sum(r['ext_cal'] == 'wingtra_ppk' for r in records)
+    if n_ppk:
+        src_note = f' Positions from Wingtra PPK geotags ({n_ppk} images).'
+    elif ppk:
+        src_note = (' Positions from the WingtraHub geotag export, whose accuracy (~5 m) shows it is'
+                    ' onboard GNSS, not PPK.')
+    else:
+        src_note = (' Positions from onboard (non-PPK) Wingtra GNSS geotags; altitude converted'
+                    f' from above-sea-level with geoid N={UCSB_GEOID_N} m.')
+    notes = (notes + src_note +
              ' Times from geotags (camera EXIF clock is not set). Camera yaw/pitch/roll are in'
              ' manifest.csv; omega/phi/kappa not derived.').strip()
     write_collection(name, site, 'airborne', records, notes)
@@ -502,6 +521,7 @@ GROUND = {
 }
 
 # name: (site, flight folder, PPK csv, geotaglog)
+# Despite the folder, these Lagoon geotags are onboard GNSS (5 m / 10 m accuracy), not PPK
 LAGOON_PPK = LIZZY / 'Lagoon/3D Campus Model - Lagoon Flight 01 - Merged datasets geotags - WGS84 - 4326.csv'
 NW = LIZZY / '3D_Campus_Model__North_West'
 WINGTRA_FLIGHTS = {
@@ -553,7 +573,7 @@ if __name__ == '__main__':
     if not names or unknown:
         sys.exit(f'usage: build_wriva.py <collection>... | all | --list   (unknown: {unknown})')
     for n in names:
-        if (OUT_ROOT / n).exists():
-            print(f'skip {n}: {OUT_ROOT / n} already exists (remove it to rebuild)', flush=True)
+        if (OUT_ROOT / group_of(n) / n).exists():
+            print(f'skip {n}: {OUT_ROOT / group_of(n) / n} already exists (remove it to rebuild)', flush=True)
             continue
         COLLECTIONS[n]()
