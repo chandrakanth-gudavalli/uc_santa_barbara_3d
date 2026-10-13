@@ -10,6 +10,7 @@ metadata schema **4.2.0**.
   - `DJI/` — DJI video keyframes (32)
 - **Builder:** `tools/build_wriva.py` (writes everything below)
 - **Map:** `tools/gps_map.py` (writes `gps_map.html`; called by the builder)
+- **Campus overview:** `tools/overview_map.py` writes `wriva_format/overview_map.html`, every collection on one map, linking to each `gps_map.html`
 - **Inventory:** [COLLECTIONS.md](COLLECTIONS.md) lists all 64 collections with image counts, GPS sources and dates (16,933 images, 156 GB).
 
 ## Collection layout

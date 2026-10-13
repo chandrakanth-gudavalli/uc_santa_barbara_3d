@@ -11,7 +11,9 @@ it lives on the `/data_8tb` drive of the workstation. This repo:
 - lists every built collection with counts and GPS coverage (`docs/COLLECTIONS.md`)
 - converts raw ground photos and drone images into WRIVA-format collections
   (`tools/build_wriva.py`, documented in `docs/WRIVA_FORMAT.md`)
-- draws an HTML GPS map per collection (`tools/gps_map.py`)
+- draws an HTML GPS map per collection (`tools/gps_map.py`) and a campus-wide overview
+  (`tools/overview_map.py` → `wriva_format/overview_map.html`)
+- `README.md` images live in `docs/images/` (screenshots of those maps + a sample-image strip)
 
 ## Project goal
 
