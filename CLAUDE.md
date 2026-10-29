@@ -37,6 +37,12 @@ ground and aerial splats, with fly-through camera paths, building labels, and ae
 - The **Move** setting keeps the camera near the photos, because a splat is only reliable there: `photos`
   (default, on a photo position, ±10°), `near` (0.75× the local photo spacing, ±20°), `free`. The limits are
   `REACH`, `NEAR_DEG` and `PHOTO_DEG` at the top of `site/main.js`; `?mode=` sets the mode.
+- Opening the page without a scene in the link plays a **flythrough** (`flightPath` in `site/main.js`): an
+  oblique loop at drone height inside the photo footprint for aerial scenes, the photographer's route for building
+  walks. Dragging, scrolling or a key hands control back. `?autoplay=0|1` overrides.
+- **Level of detail**: `lod: true` builds Spark's LoD tree in the browser after download. It adds ~12 s per 3 M-splat
+  scene and a desktop GPU doesn't need it, so it is on for touch devices only (`?lod=1|0` forces it). Pre-built
+  `.rad` files (Spark's Rust `build-lod --quality`, as JHU uses) would load instantly and stream; not done yet.
 - Deploys: `.github/workflows/pages.yml` publishes `site/` on every push to `main` that changes it
   (Settings → Pages → Source: GitHub Actions).
 - Local preview: `cd site && python3 -m http.server 8765 --bind 127.0.0.1`.

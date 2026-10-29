@@ -18,7 +18,7 @@ fly-through camera paths, building labels and jumps between aerial and ground vi
 
 **First version live:** <https://chandrakanth-gudavalli.github.io/uc_santa_barbara_3d/>. It has six scenes: two
 campus drone surveys, two building walks (Harold Frank Hall, Engineering Science Building) and two combined
-ground + air models, with photo-view stepping and jumps between the air and the ground. The page is in
+ground + air models, with an opening flythrough, photo-view stepping and jumps between the air and the ground. The page is in
 [`site/`](site/); the splat files are on Hugging Face ([wrivachand/uc_santa_barbara_3d](https://huggingface.co/wrivachand/uc_santa_barbara_3d)).
 
 This repo covers the first stage: getting every image onto a common footing, with a position,

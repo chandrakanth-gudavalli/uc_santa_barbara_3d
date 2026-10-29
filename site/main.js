@@ -34,7 +34,13 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06141e);
-const spark = new SparkRenderer({ renderer });
+// Level of detail: each scene's splats get an LoD tree, built in a background worker after download (`lod: true`), and
+// Spark draws a per-device budget of them (1-1.5 M on phones), spent mostly in front of the camera (the cone
+// settings). Building the tree adds ~12 s to a 3 M-splat load and a desktop GPU draws the full set as fast, so it is
+// on for touch devices only; ?lod=1 / ?lod=0 forces it, ?detail=<x> scales the budget.
+const LOD = params.has("lod") ? params.get("lod") !== "0" : matchMedia("(pointer: coarse)").matches;
+const spark = new SparkRenderer({ renderer, lodSplatScale: parseFloat(params.get("detail")) || 1.0,
+                                  coneFov0: 70, coneFov: 120, behindFoveate: 0.2, coneFoveate: 0.4 });
 scene.add(spark);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 6000);
 camera.up.copy(Z);
@@ -51,7 +57,7 @@ window.addEventListener("resize", resize);
 resize();
 
 // ---- state
-const state = { clip: null, poses: null, mesh: null, view: -1, tween: null, fly: null, tour: null, speed: 1,
+const state = { clip: null, poses: null, mesh: null, view: -1, tween: null, flight: null, nextFlight: null, speed: 1,
                 loading: false, mode: MODES.includes(params.get("mode")) ? params.get("mode")
                   : (MODES.includes(store.get("ucsb3d.mode")) ? store.get("ucsb3d.mode") : "photos") };
 
@@ -69,8 +75,8 @@ function lookPose(eye, target) {
 
 function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
-function goTo(pose, seconds = 1.4, keepTour = false) {
-  state.fly = null; if (!keepTour) state.tour = null; $("fly").setAttribute("aria-pressed", String(!!state.tour));
+function goTo(pose, seconds = 1.4) {
+  stopFlight();
   state.tween = { p0: camera.position.clone(), q0: camera.quaternion.clone(), p1: pose.p, q1: pose.q,
                   t0: performance.now(), dur: seconds * 1000 };
 }
@@ -145,9 +151,68 @@ function groundPointAhead() {
   return new THREE.Vector3(p.x + f.x * 30, p.y + f.y * 30, gz);
 }
 
+// ---- the flythrough: a smooth looping path, played when the page opens
+const FLIGHT_SPEED = { campus: 12, site: 12, ground: 2.2 };   // metres a second at 1x
+function flightPath(P, S) {
+  const air = P.frames.filter((f) => f.e !== "ground");
+  if (S.group !== "ground" && air.length) {
+    // an oblique loop at the drone's height, inside the area its photos cover: an ellipse on the photo positions'
+    // principal axes at 1.1 standard deviations, looking in and down at a smaller one on the ground
+    const n = air.length, mx = air.reduce((a, f) => a + f.c[0], 0) / n, my = air.reduce((a, f) => a + f.c[1], 0) / n;
+    let sxx = 0, syy = 0, sxy = 0;
+    air.forEach((f) => { const dx = f.c[0] - mx, dy = f.c[1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; });
+    sxx /= n; syy /= n; sxy /= n;
+    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy), tr = (sxx + syy) / 2, dd = Math.sqrt(((sxx - syy) / 2) ** 2 + sxy ** 2);
+    const s1 = Math.sqrt(tr + dd), s2 = Math.sqrt(Math.max(tr - dd, 1));
+    const e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
+    const z = air.map((f) => f.c[2]).sort((a, b) => a - b)[n >> 1], gz = P.centre[2];
+    const ring = (k, sc, h) => { const a = (2 * Math.PI * k) / 12, u = sc * s1 * Math.cos(a), v = sc * s2 * Math.sin(a);
+      return new THREE.Vector3(mx + u * e1[0] + v * e2[0], my + u * e1[1] + v * e2[1], h); };
+    const eye = [], look = [];
+    for (let k = 0; k < 12; k++) { eye.push(ring(k, 1.1, z)); look.push(ring(k + 1.5, 0.35, gz)); }
+    return { eye: new THREE.CatmullRomCurve3(eye, true, "centripetal"), look: new THREE.CatmullRomCurve3(look, true, "centripetal"),
+             loop: true, speed: FLIGHT_SPEED[S.group] };
+  }
+  // a building walk: glide along the photographer's route, looking where the photos looked (smoothed)
+  const fr = P.frames, step = Math.max(1, Math.ceil(fr.length / 60)), eye = [], look = [];
+  for (let i = 0; i < fr.length; i += step) {
+    const f = new THREE.Vector3();
+    for (let j = Math.max(0, i - 2 * step); j <= Math.min(fr.length - 1, i + 2 * step); j++) f.add(V(fr[j].f));
+    f.z *= 0.3; f.normalize();
+    eye.push(V(fr[i].c)); look.push(V(fr[i].c).addScaledVector(f, 10));
+  }
+  const gap = eye[0].distanceTo(eye[eye.length - 1]), hop = eye[0].distanceTo(eye[1] || eye[0]);
+  const loop = gap < 3 * Math.max(hop, 1);
+  return { eye: new THREE.CatmullRomCurve3(eye, loop, "centripetal"), look: new THREE.CatmullRomCurve3(look, loop, "centripetal"),
+           loop, speed: FLIGHT_SPEED.ground };
+}
+function flightPose(F, u) {
+  const t = F.loop ? ((u % 1) + 1) % 1 : 1 - Math.abs((((u % 2) + 2) % 2) - 1);   // a walk that doesn't close: there and back
+  return lookPose(F.eye.getPointAt(t), F.look.getPointAt(t));
+}
+function startFlight() {
+  const F = flightPath(state.poses, byClip[state.clip]);
+  F.len = F.eye.getLength(); F.u = 0;
+  goTo(flightPose(F, 0), 1.6);                              // glide onto the path, then fly it
+  state.nextFlight = F; state.view = -1; $("view-label").textContent = "Flythrough";
+  $("fly").setAttribute("aria-pressed", "true"); $("fly").textContent = "❚❚ Pause";
+}
+function stopFlight() {
+  if (!state.flight && !state.nextFlight) return;
+  state.flight = state.nextFlight = null;
+  $("fly").setAttribute("aria-pressed", "false"); $("fly").textContent = "▶ Flythrough";
+}
+function takeControl() {
+  // the visitor dragged, scrolled or pressed a key: stop flying, and in the restricted modes settle on the nearest photo
+  if (!state.flight && !state.nextFlight) return;
+  stopFlight(); state.tween = null;
+  if (state.mode !== "free" && state.poses) setView(nearest3d(state.poses, camera.position), 1.2);
+}
+
 // ---- loading a scene
 async function loadScene(clip, { view = null, keepCamera = false, then = null } = {}) {
   if (state.loading) return;
+  stopFlight();
   const S = byClip[clip];
   if (!S) return toast(`Unknown scene: ${clip}`);
   state.loading = true;
@@ -158,11 +223,14 @@ async function loadScene(clip, { view = null, keepCamera = false, then = null } 
     const P = prepare(await loadPoses(clip));
     const mesh = new SplatMesh({
       url: assetBase + P.splat,
+      lod: LOD,
       onProgress: (e) => {
         if (e && e.lengthComputable && e.total) {
           const pct = (e.loaded / e.total) * 100;
           $("loading-bar").style.width = `${pct.toFixed(1)}%`;
-          $("loading-sub").textContent = `${(e.loaded / 1e6).toFixed(0)} of ${(e.total / 1e6).toFixed(0)} MB`;
+          $("loading-sub").textContent = e.loaded < e.total
+            ? `${(e.loaded / 1e6).toFixed(0)} of ${(e.total / 1e6).toFixed(0)} MB`
+            : (LOD ? "Building level of detail…" : "Preparing…");
         }
       },
     });
@@ -192,7 +260,7 @@ function setView(k, seconds = 1.4) {
   const n = P.frames.length; k = ((k % n) + n) % n;
   state.view = k;
   const pose = poseOf(P.frames[k]);
-  if (seconds > 0) goTo(pose, seconds, true); else { camera.position.copy(pose.p); camera.quaternion.copy(pose.q); }
+  if (seconds > 0) goTo(pose, seconds); else { camera.position.copy(pose.p); camera.quaternion.copy(pose.q); }
   $("view-label").textContent = `Photo ${k + 1} / ${n}`;
   updateHash();
 }
@@ -319,27 +387,18 @@ $("overview").addEventListener("click", () => {
   state.view = -1; renderControls(); goTo(overviewPose(state.poses, byClip[state.clip].group)); updateHash();
 });
 $("fly").addEventListener("click", () => {
-  if (state.fly || state.tour) { state.fly = state.tour = null; $("fly").setAttribute("aria-pressed", "false"); return; }
-  if (state.mode !== "free") {                              // a tour through the photo views, in capture order
-    state.tween = null; state.tour = { t: 0 }; $("fly").setAttribute("aria-pressed", "true");
-    return setView(state.view < 0 ? nearest3d(state.poses, camera.position) : state.view + 1);
-  }
-  const c = centre(state.poses), p = camera.position;
-  let r = Math.hypot(p.x - c.x, p.y - c.y);
-  let z = p.z;
-  if (r < 10) { const o = overviewPose(state.poses, byClip[state.clip].group).p; r = Math.hypot(o.x - c.x, o.y - c.y); z = o.z; }
-  state.tween = null;
-  state.fly = { c, r, z, a: Math.atan2(p.y - c.y, p.x - c.x), t: performance.now() };
-  $("fly").setAttribute("aria-pressed", "true");
+  if (state.flight || state.nextFlight) return takeControl();
+  if (state.poses) startFlight();
 });
+canvas.addEventListener("pointerdown", takeControl);
+canvas.addEventListener("wheel", takeControl, { passive: true });
 $("speed").addEventListener("change", (e) => {
   state.speed = parseFloat(e.target.value);
   if (state.clip) controls.fpsMovement.moveSpeed = MOVE_SPEED[byClip[state.clip].group] * state.speed;
 });
 function setMode(m) {
   state.mode = m; store.set("ucsb3d.mode", m); $("mode").value = m;
-  state.fly = null; state.tour = null; $("fly").setAttribute("aria-pressed", "false");
-  $("fly").textContent = m === "free" ? "Fly around" : "Tour photos";
+  stopFlight();
   if (m === "photos" && state.poses) setView(state.view >= 0 ? state.view : nearest3d(state.poses, camera.position));
 }
 $("mode").addEventListener("change", (e) => setMode(e.target.value));
@@ -355,6 +414,7 @@ $("about-go").addEventListener("click", closeAbout);
 $("about-btn").addEventListener("click", () => { $("about").hidden = !$("about").hidden; });
 window.addEventListener("keydown", (e) => {
   if (e.target.tagName === "SELECT") return;
+  if (!["[", "]", "Escape"].includes(e.key)) takeControl();
   if (e.key === "[") setView(state.view < 0 ? 0 : state.view - 1);
   if (e.key === "]") setView(state.view + 1);
   if (e.key === "Escape") { $("about").hidden = true; $("help").hidden = true; }
@@ -362,23 +422,22 @@ window.addEventListener("keydown", (e) => {
 
 // ---- frame loop
 let lastUd = 0;
+let lastNow = 0;
 renderer.setAnimationLoop((now) => {
+  const dt = Math.min(0.1, (now - (lastNow || now)) / 1000); lastNow = now;
   if (state.tween) {
     const T = state.tween, t = Math.min(1, (now - T.t0) / T.dur), k = ease(t);
     camera.position.lerpVectors(T.p0, T.p1, k);
     camera.quaternion.slerpQuaternions(T.q0, T.q1, k);
-    if (t >= 1) state.tween = null;
-  } else if (state.fly) {
-    const F = state.fly, a = F.a + ((now - F.t) / 1000) * 0.08 * state.speed;
-    const eye = new THREE.Vector3(F.c.x + F.r * Math.cos(a), F.c.y + F.r * Math.sin(a), F.z);
-    camera.position.copy(eye); camera.up.copy(Z); camera.lookAt(F.c);
+    if (t >= 1) { state.tween = null; if (state.nextFlight) { state.flight = state.nextFlight; state.nextFlight = null; } }
+  } else if (state.flight) {
+    const F = state.flight;
+    F.u += (dt * F.speed * state.speed) / F.len;
+    const pose = flightPose(F, F.u);
+    camera.position.copy(pose.p); camera.quaternion.copy(pose.q);
   } else {
     controls.update(camera);
     constrain();
-  }
-  if (state.tour && !state.tween) {
-    state.tour.t ||= now;
-    if (now - state.tour.t > 1200 / state.speed) { state.tour.t = 0; setView(state.view + 1, 1.6 / state.speed); }
   }
   if (state.poses && now - lastUd > 500) { lastUd = now; if (state.poses.frames.some((f) => f.e)) renderControls(); }
   renderer.render(scene, camera);
@@ -386,8 +445,13 @@ renderer.setAnimationLoop((now) => {
 
 // ---- start
 if (!store.get("ucsb3d.seen")) $("about").hidden = false; else $("about").hidden = true;
-$("mode").value = state.mode; $("fly").textContent = state.mode === "free" ? "Fly around" : "Tour photos";
+$("mode").value = state.mode; $("fly").textContent = "▶ Flythrough";
 if (window.innerWidth < 860) toggleMenu(false);
 const [hClip, hView] = decodeURIComponent(location.hash.slice(1)).split("/");
 await loadScene(byClip[hClip] ? hClip : catalog.scenes[0].clip, { view: hView ? parseInt(hView, 10) - 1 : null });
+// opening the page without a scene in the link plays the flythrough, as JHU in 3D does; ?autoplay=0 / =1 overrides
+if (state.poses && (params.get("autoplay") === "1" || (!byClip[hClip] && params.get("autoplay") !== "0"))) {
+  startFlight();
+  toast("Flythrough playing · drag, scroll or press a key to take over");
+}
 
