@@ -68,8 +68,8 @@ function poseOf(fr) {
   return { p, q: d.quaternion.clone() };
 }
 
-function lookPose(eye, target) {
-  const d = new THREE.PerspectiveCamera(); d.up.copy(Z); d.position.copy(eye); d.lookAt(target);
+function lookPose(eye, target, up = Z) {
+  const d = new THREE.PerspectiveCamera(); d.up.copy(up); d.position.copy(eye); d.lookAt(target);
   return { p: eye.clone(), q: d.quaternion.clone() };
 }
 
@@ -156,8 +156,9 @@ const FLIGHT_SPEED = { campus: 12, site: 12, ground: 2.2 };   // metres a second
 function flightPath(P, S) {
   const air = P.frames.filter((f) => f.e !== "ground");
   if (S.group !== "ground" && air.length) {
-    // an oblique loop at the drone's height, inside the area its photos cover: an ellipse on the photo positions'
-    // principal axes at 1.1 standard deviations, looking in and down at a smaller one on the ground
+    // a loop at the drone's height looking straight down, as the drone photos do, with the top of the screen
+    // pointing the way it flies: an ellipse on the photo positions' principal axes at 0.9 standard deviations,
+    // inside the area the photos cover
     const n = air.length, mx = air.reduce((a, f) => a + f.c[0], 0) / n, my = air.reduce((a, f) => a + f.c[1], 0) / n;
     let sxx = 0, syy = 0, sxy = 0;
     air.forEach((f) => { const dx = f.c[0] - mx, dy = f.c[1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; });
@@ -165,13 +166,12 @@ function flightPath(P, S) {
     const th = 0.5 * Math.atan2(2 * sxy, sxx - syy), tr = (sxx + syy) / 2, dd = Math.sqrt(((sxx - syy) / 2) ** 2 + sxy ** 2);
     const s1 = Math.sqrt(tr + dd), s2 = Math.sqrt(Math.max(tr - dd, 1));
     const e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
-    const z = air.map((f) => f.c[2]).sort((a, b) => a - b)[n >> 1], gz = P.centre[2];
+    const z = air.map((f) => f.c[2]).sort((a, b) => a - b)[n >> 1];
     const ring = (k, sc, h) => { const a = (2 * Math.PI * k) / 12, u = sc * s1 * Math.cos(a), v = sc * s2 * Math.sin(a);
       return new THREE.Vector3(mx + u * e1[0] + v * e2[0], my + u * e1[1] + v * e2[1], h); };
-    const eye = [], look = [];
-    for (let k = 0; k < 12; k++) { eye.push(ring(k, 1.1, z)); look.push(ring(k + 1.5, 0.35, gz)); }
-    return { eye: new THREE.CatmullRomCurve3(eye, true, "centripetal"), look: new THREE.CatmullRomCurve3(look, true, "centripetal"),
-             loop: true, speed: FLIGHT_SPEED[S.group] };
+    const eye = [];
+    for (let k = 0; k < 12; k++) eye.push(ring(k, 0.9, z));
+    return { eye: new THREE.CatmullRomCurve3(eye, true, "centripetal"), nadir: true, loop: true, speed: FLIGHT_SPEED[S.group] };
   }
   // a building walk: glide along the photographer's route, looking where the photos looked (smoothed)
   const fr = P.frames, step = Math.max(1, Math.ceil(fr.length / 60)), eye = [], look = [];
@@ -188,7 +188,12 @@ function flightPath(P, S) {
 }
 function flightPose(F, u) {
   const t = F.loop ? ((u % 1) + 1) % 1 : 1 - Math.abs((((u % 2) + 2) % 2) - 1);   // a walk that doesn't close: there and back
-  return lookPose(F.eye.getPointAt(t), F.look.getPointAt(t));
+  const p = F.eye.getPointAt(t);
+  if (F.nadir) {
+    const head = F.eye.getTangentAt(t); head.z = 0; head.normalize();
+    return lookPose(p, p.clone().add(new THREE.Vector3(0, 0, -1)), head);
+  }
+  return lookPose(p, F.look.getPointAt(t));
 }
 function startFlight() {
   const F = flightPath(state.poses, byClip[state.clip]);

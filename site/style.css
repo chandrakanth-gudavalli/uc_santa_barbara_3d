@@ -35,6 +35,9 @@ a { color: var(--accent); }
 .chip:hover, .chip.on { border-color: var(--accent); color: #fff; }
 .chip.on { background: rgba(95, 200, 240, 0.18); }
 .chip svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
+a.chip { color: var(--ink); text-decoration: none; }
+.site-link { border-color: rgba(255, 184, 77, 0.45); }
+.site-link:hover { border-color: var(--gold); color: #fff; }
 
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
@@ -123,7 +126,7 @@ kbd {
 .speed option { background: var(--panel-solid); }
 
 @media (max-width: 860px) {
-  .brand-sub, .groups .chip[data-group], .scene-name { display: none; }
+  .brand-sub, .groups .chip[data-group], .scene-name, .site-link span { display: none; }
   .scenes { top: 70px; width: calc(100vw - 32px); max-height: 50vh; }
   .controls { gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
   .ctl.wide { padding: 0 10px; font-size: 13px; }
