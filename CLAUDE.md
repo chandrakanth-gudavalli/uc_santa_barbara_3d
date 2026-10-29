@@ -22,10 +22,24 @@ Build a **"UCSB in 3D"** GitHub Pages site for the campus, modeled on
 ground and aerial splats, with fly-through camera paths, building labels, and aerial↔ground jumps.
 
 - The organized `wriva_format` collections are the input for training those splats.
-- The team trains the splats itself. Don't start the site until they're ready.
-- Planned layout: site code in `site/` of this repo (GitHub Pages); large splat files on Hugging Face.
+- Layout: site code in `site/` of this repo (GitHub Pages); large splat files on Hugging Face.
 - JHU uses Three.js + [Spark](https://sparkjs.dev) (`@sparkjsdev/spark`, MIT) with `.rad` splat files and
   per-scene camera trajectory JSONs. Their source isn't published under a license, so write our own viewer.
+
+## The site (`site/`)
+
+- Plain HTML/CSS/JS, no build step: three.js 0.180 from jsDelivr, Spark 2.3.1 vendored in `site/vendor/`.
+- `site/scenes.json` is the catalog. `assetBase` is where the `.spz` files are loaded from (the Hugging Face repo);
+  `?assets=<url>` overrides it. `site/scenes/<clip>.json` holds each scene's photo poses.
+- Every scene is in one GPS frame (east-north-up metres, z up). Each `.spz` stores centres relative to an
+  integer `splat_origin` (float16 precision), and the viewer puts the mesh back at that origin. Keep that when
+  adding a scene, or the model renders displaced.
+- The **Move** setting keeps the camera near the photos, because a splat is only reliable there: `photos`
+  (default, on a photo position, ±10°), `near` (0.75× the local photo spacing, ±20°), `free`. The limits are
+  `REACH`, `NEAR_DEG` and `PHOTO_DEG` at the top of `site/main.js`; `?mode=` sets the mode.
+- Deploys: `.github/workflows/pages.yml` publishes `site/` on every push to `main` that changes it
+  (Settings → Pages → Source: GitHub Actions).
+- Local preview: `cd site && python3 -m http.server 8765 --bind 127.0.0.1`.
 
 ## Key paths
 

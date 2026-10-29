@@ -1,0 +1,77 @@
+{
+ "assetBase": "https://huggingface.co/wrivachand/uc_santa_barbara_3d/resolve/main/assets/",
+ "scenes": [
+  {
+   "clip": "ucsb_east_drone",
+   "group": "campus",
+   "title": "East Campus",
+   "subtitle": "Survey drone",
+   "photos": 344,
+   "gaussians": 2987536,
+   "mb": 169.9,
+   "aerial": null,
+   "ground": [
+    "ucsb_hfh_ground",
+    "ucsb_esb_ground",
+    "ucsb_east_site"
+   ]
+  },
+  {
+   "clip": "ucsb_northwest_drone",
+   "group": "campus",
+   "title": "Northwest Campus",
+   "subtitle": "Survey drone, North Hall flight",
+   "photos": 830,
+   "gaussians": 2127973,
+   "mb": 62.3,
+   "aerial": null,
+   "ground": [
+    "ucsb_northwest_site"
+   ]
+  },
+  {
+   "clip": "ucsb_hfh_ground",
+   "group": "ground",
+   "title": "Harold Frank Hall",
+   "subtitle": "Walk around the building",
+   "photos": 130,
+   "gaussians": 2997070,
+   "mb": 162.8,
+   "aerial": "ucsb_east_drone",
+   "ground": []
+  },
+  {
+   "clip": "ucsb_esb_ground",
+   "group": "ground",
+   "title": "Engineering Science Building",
+   "subtitle": "Walk around the building",
+   "photos": 182,
+   "gaussians": 2989880,
+   "mb": 169.6,
+   "aerial": "ucsb_east_drone",
+   "ground": []
+  },
+  {
+   "clip": "ucsb_east_site",
+   "group": "site",
+   "title": "East Campus, ground + air",
+   "subtitle": "Drone and walks fitted together",
+   "photos": 871,
+   "gaussians": 1557841,
+   "mb": 59.5,
+   "aerial": "ucsb_east_drone",
+   "ground": []
+  },
+  {
+   "clip": "ucsb_northwest_site",
+   "group": "site",
+   "title": "North Hall, ground + air",
+   "subtitle": "Drone and walk fitted together",
+   "photos": 1240,
+   "gaussians": 1602458,
+   "mb": 49.4,
+   "aerial": "ucsb_northwest_drone",
+   "ground": []
+  }
+ ]
+}

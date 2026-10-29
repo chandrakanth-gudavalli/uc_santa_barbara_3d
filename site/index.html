@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>UCSB in 3D</title>
+    <meta name="description" content="Explore the UC Santa Barbara campus as 3D Gaussian Splatting models, from the air and from the ground." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "@sparkjsdev/spark": "./vendor/spark-2.3.1/spark.module.min.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="view" aria-label="3D view of the selected scene"></canvas>
+
+    <header class="topbar">
+      <button id="menu-btn" class="chip" aria-expanded="true" aria-controls="scenes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span>Scenes</span>
+      </button>
+      <div class="brand">
+        <div class="brand-title">UCSB in 3D</div>
+        <div class="brand-sub">UC Santa Barbara campus, reconstructed from drone and ground photos</div>
+      </div>
+      <nav class="groups" aria-label="Scene groups">
+        <button class="chip" data-group="campus">Campus · aerial</button>
+        <button class="chip" data-group="ground">Buildings · ground</button>
+        <button class="chip" data-group="site">Ground + air</button>
+        <button id="about-btn" class="chip">About</button>
+      </nav>
+    </header>
+
+    <aside id="scenes" class="panel scenes" aria-label="Scenes"></aside>
+
+    <section id="about" class="panel about" role="dialog" aria-labelledby="about-title">
+      <button class="close" id="about-close" aria-label="Close">×</button>
+      <h1 id="about-title">Hi there!</h1>
+      <p>
+        This is the UC Santa Barbara campus as <b>3D Gaussian Splatting</b> models: millions of small, soft blobs of
+        colour fitted to photographs, so the campus can be viewed from places no camera stood.
+      </p>
+      <p>Each scene is one reconstruction, at one of two levels:</p>
+      <ul>
+        <li><b>Campus · aerial</b>: a survey drone's photos over east and northwest campus.</li>
+        <li><b>Buildings · ground</b>: a walk around Harold Frank Hall and the Engineering Science Building.</li>
+        <li><b>Ground + air</b>: drone and walk photos fitted together in one model.</li>
+      </ul>
+      <p>
+        All scenes share one GPS frame in metres, so <b>Go down</b> takes you from a drone model to the street at the
+        same spot, and <b>Go up</b> brings you back.
+      </p>
+      <p>
+        A model is only as good as the photos behind it, so by default you stand where a photo was taken and can look
+        around a little (<b>Move: Photos only</b>); step between photos with ‹ ›, or take the <b>Tour</b>.
+        <b>Near photos</b> lets you walk a few steps off them, and <b>Free</b> goes anywhere, where the model can break up.
+      </p>
+      <p class="muted">Vision Research Laboratory, UC Santa Barbara.</p>
+      <div class="about-foot">
+        <span>Rendered in your browser with <a href="https://sparkjs.dev" target="_blank" rel="noopener">Spark</a> and three.js.</span>
+        <button class="primary" id="about-go">Start exploring</button>
+      </div>
+    </section>
+
+    <div id="loading" class="loading" hidden>
+      <div class="loading-label">Loading <span id="loading-name"></span></div>
+      <div class="bar"><div id="loading-bar"></div></div>
+      <div class="loading-sub" id="loading-sub"></div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <div id="help" class="panel help" hidden>
+      <b>Controls</b>
+      <div><kbd>drag</kbd> look around</div>
+      <div><kbd>right-drag</kbd> or two fingers: slide</div>
+      <div><kbd>scroll</kbd> move forward / back</div>
+      <div><kbd>W A S D</kbd> or arrows: move</div>
+      <div><kbd>Q</kbd> <kbd>E</kbd> down / up · <kbd>Shift</kbd> faster</div>
+      <div><kbd>[</kbd> <kbd>]</kbd> previous / next photo view</div>
+      <div class="muted-help"><b>Move</b>: <i>Near photos</i> keeps you within a few steps to where photos were taken, where the
+        model is reliable; <i>Photos only</i> keeps you on them; <i>Free</i> goes anywhere.</div>
+    </div>
+
+    <footer class="controls" aria-label="Viewer controls">
+      <div class="scene-name" id="scene-name"></div>
+      <div class="group">
+        <button class="ctl" id="prev" title="Previous photo view ([)">‹</button>
+        <button class="ctl wide" id="view-label" title="Jump to where a photo was taken">Photo —</button>
+        <button class="ctl" id="next" title="Next photo view (])">›</button>
+      </div>
+      <div class="group">
+        <button class="ctl wide" id="overview" title="An overview of the whole scene">Overview</button>
+        <button class="ctl wide" id="fly" title="Fly around the scene" aria-pressed="false">Fly around</button>
+        <button class="ctl wide" id="updown" hidden></button>
+      </div>
+      <div class="group">
+        <label class="speed" title="How far you may move from where the photos were taken">Move
+          <select id="mode">
+            <option value="photos">Photos only</option><option value="near">Near photos</option>
+            <option value="free">Free</option>
+          </select>
+        </label>
+        <label class="speed">Speed
+          <select id="speed">
+            <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+            <option value="1" selected>1.00×</option><option value="2">2×</option><option value="4">4×</option>
+          </select>
+        </label>
+        <button class="ctl" id="help-btn" title="Controls" aria-pressed="false">?</button>
+        <button class="ctl" id="fs" title="Full screen">⤢</button>
+      </div>
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

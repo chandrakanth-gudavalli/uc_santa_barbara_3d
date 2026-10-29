@@ -16,6 +16,11 @@ A public **"UCSB in 3D"** site in the spirit of [JHU in 3D](https://cpeng93.gith
 a campus-wide aerial Gaussian splat plus ground and aerial splats for each building, with
 fly-through camera paths, building labels and jumps between aerial and ground views.
 
+**First version live:** <https://chandrakanth-gudavalli.github.io/uc_santa_barbara_3d/>. It has six scenes: two
+campus drone surveys, two building walks (Harold Frank Hall, Engineering Science Building) and two combined
+ground + air models, with photo-view stepping and jumps between the air and the ground. The page is in
+[`site/`](site/); the splat files are on Hugging Face ([wrivachand/uc_santa_barbara_3d](https://huggingface.co/wrivachand/uc_santa_barbara_3d)).
+
 This repo covers the first stage: getting every image onto a common footing, with a position,
 a timestamp and camera parameters, so reconstructions can be trained and aligned on one campus
 coordinate frame.
@@ -119,6 +124,7 @@ python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt   # Pil
 | [`docs/DATA_LOCATIONS.md`](docs/DATA_LOCATIONS.md) | where every raw and processed dataset is on `/data_8tb`, and known duplicates |
 | [`docs/WRIVA_FORMAT.md`](docs/WRIVA_FORMAT.md) | the collection format, GPS sources, altitude datum, sources per collection |
 | [`docs/COLLECTIONS.md`](docs/COLLECTIONS.md) | inventory of all collections and their gaps |
+| [`site/`](site/) | the "UCSB in 3D" web viewer (three.js + [Spark](https://sparkjs.dev)), published by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) |
 | [`CLAUDE.md`](CLAUDE.md) | working notes and conventions for contributors (and Claude Code) |
 
 ## Roadmap
@@ -126,6 +132,7 @@ python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt   # Pil
 - [x] Locate and document all campus imagery on `/data_8tb`
 - [x] Organize ground, Wingtra and DJI imagery into georeferenced WRIVA-format collections
 - [x] Per-collection and campus-wide GPS maps, summary CSV
-- [ ] Point clouds and Gaussian splats per building, plus a campus-wide aerial splat
+- [ ] Point clouds and Gaussian splats per building, plus a campus-wide aerial splat (first six scenes on the site)
 - [ ] PPK for the remaining Wingtra flights (North Middle, Northeast, East, Lagoon)
-- [ ] The "UCSB in 3D" web viewer (`site/`, splats hosted on Hugging Face)
+- [x] The "UCSB in 3D" web viewer, first version (`site/`, splats hosted on Hugging Face)
+- [ ] More buildings, building labels, fly-through camera paths, level-of-detail streaming for phones
