@@ -28,17 +28,22 @@ const byClip = Object.fromEntries(catalog.scenes.map((s) => [s.clip, s]));
 const poseCache = {};
 const loadPoses = (clip) => (poseCache[clip] ??= fetch(`./scenes/${clip}.json`).then((r) => r.json()));
 
+// Phones: the in-browser LoD build (it grows a 3 M-splat scene to 4.4 M and took 10 s on a server CPU) stalled them,
+// so they load the full file without it, render SH up to degree 1 only, and draw at most 1.5x pixel density.
+// (A pruned 1-1.5 M copy was tried and broke up badly, 16-21 dB against the full model: these fits need every splat.)
+// ?mobile=1|0 forces the phone settings.
+const MOBILE = params.has("mobile") ? params.get("mobile") !== "0" : matchMedia("(pointer: coarse)").matches;
+
 // ---- renderer, camera, controls
 const canvas = $("view");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.5 : 2));
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06141e);
-// Level of detail: each scene's splats get an LoD tree, built in a background worker after download (`lod: true`), and
-// Spark draws a per-device budget of them (1-1.5 M on phones), spent mostly in front of the camera (the cone
-// settings). Building the tree adds ~12 s to a 3 M-splat load and a desktop GPU draws the full set as fast, so it is
-// on for touch devices only; ?lod=1 / ?lod=0 forces it, ?detail=<x> scales the budget.
-const LOD = params.has("lod") ? params.get("lod") !== "0" : matchMedia("(pointer: coarse)").matches;
+// Level of detail (?lod=1): Spark builds an LoD tree in a background worker after download and draws a per-device
+// budget of splats, mostly in front of the camera (the cone settings). Off by default: it adds ~12 s to a 3 M-splat
+// load, grows the scene by ~45% in memory, and a desktop GPU draws the full set as fast. ?detail=<x> scales the budget.
+const LOD = params.get("lod") === "1";
 const spark = new SparkRenderer({ renderer, lodSplatScale: parseFloat(params.get("detail")) || 1.0,
                                   coneFov0: 70, coneFov: 120, behindFoveate: 0.2, coneFoveate: 0.4 });
 scene.add(spark);
@@ -240,6 +245,7 @@ async function loadScene(clip, { view = null, keepCamera = false, then = null } 
       },
     });
     mesh.position.set(P.splat_origin[0], P.splat_origin[1], P.splat_origin[2]);
+    if (MOBILE) mesh.maxSh = 1;
     await mesh.initialized;
     if (state.mesh) { scene.remove(state.mesh); state.mesh.dispose(); }
     scene.add(mesh);
